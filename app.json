@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Flow Finance",
-    "slug": "flow-finance",
-    "scheme": "flowfinance",
+    "name": "Coinly",
+    "slug": "coinly",
+    "scheme": "coinly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -21,7 +21,12 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
         "backgroundColor": "#09090B"
-      }
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "com.abhishekvp2006.coinly"
     },
     "web": {
       "bundler": "metro",
@@ -34,12 +39,15 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow Flow Finance to use Face ID for secure login."
+          "faceIDPermission": "Allow Coinly to use Face ID for secure login."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
     }
   }
 }

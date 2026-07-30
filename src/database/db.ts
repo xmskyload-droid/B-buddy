@@ -5,7 +5,7 @@ let db: SQLite.SQLiteDatabase | null = null;
 
 export const openDb = async () => {
   if (db) return db;
-  db = await SQLite.openDatabaseAsync('flowfinance.db');
+  db = await SQLite.openDatabaseAsync('coinly.db');
   await initDb(db);
   return db;
 };

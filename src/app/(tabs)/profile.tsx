@@ -249,7 +249,7 @@ export default function ProfileScreen() {
 
           {/* About */}
           <Section title="About" colors={colors}>
-            <SettingRow icon={Star} iconColor="#F59E0B" label="Rate Flow Finance" onPress={() => {}} colors={colors} />
+            <SettingRow icon={Star} iconColor="#F59E0B" label="Rate Coinly" onPress={() => {}} colors={colors} />
             <Divider colors={colors} />
             <SettingRow icon={MessageCircle} iconColor="#3B82F6" label="Send Feedback" onPress={() => {}} colors={colors} />
             <Divider colors={colors} />
