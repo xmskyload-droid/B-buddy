@@ -47,7 +47,11 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "9e87ed85-a740-4750-9c7e-a9a95d8fde4f"
+      }
+    },
+    "owner": "abhishekvp2006"
   }
 }
