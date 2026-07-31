@@ -8,21 +8,23 @@ interface CardProps extends ViewProps {
   noPadding?: boolean;
 }
 
-export const Card = ({ children, className = '', noPadding = false, ...props }: CardProps) => {
-  const { isDark } = useTheme();
+export const Card = ({ children, className = '', noPadding = false, style, ...props }: CardProps) => {
+  const { isDark, colors } = useTheme();
   
   return (
     <View
-      className={`rounded-[22px] overflow-hidden ${
-        isDark ? 'bg-card' : 'bg-white shadow-sm'
-      } ${!noPadding ? 'p-4' : ''} ${className}`}
-      style={!isDark ? {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-      } : {}}
+      className={`rounded-[22px] overflow-hidden ${!noPadding ? 'p-4' : ''} ${className}`}
+      style={[
+        { backgroundColor: isDark ? colors.card : 'white' },
+        !isDark ? {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+          elevation: 2,
+        } : {},
+        style
+      ]}
       {...props}
     >
       {children}
