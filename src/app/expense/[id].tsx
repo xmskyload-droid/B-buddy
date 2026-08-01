@@ -125,8 +125,11 @@ export default function ExpenseDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          await deleteExpense(expense.id);
+          const targetId = expense.id;
           router.back();
+          setTimeout(() => {
+            deleteExpense(targetId);
+          }, 100);
         },
       },
     ]);

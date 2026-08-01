@@ -38,9 +38,9 @@ function getCategoryEmoji(icon: string): string {
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
-  const { totalThisMonth, totalToday, recentExpenses, expensesByCategory, loading } = useExpenses();
+  const { totalThisMonth, totalToday, recentExpenses, expensesByCategory } = useExpenses();
   const { monthlyBudget } = useBudget();
-  const { loadExpenses, loadCategories, loadBudgets } = useExpenseStore();
+  const { loadExpenses, loadCategories, loadBudgets, loading } = useExpenseStore();
   const { name, currency } = useSettingsStore();
   const router = useRouter();
 
