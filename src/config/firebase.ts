@@ -3,12 +3,12 @@ import { initializeAuth, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyAQKrakKKef3UCKJC8hFSniokxtRTzXXAE",
+  authDomain: "coinly-945ae.firebaseapp.com",
+  projectId: "coinly-945ae",
+  storageBucket: "coinly-945ae.firebasestorage.app",
+  messagingSenderId: "57014660423",
+  appId: "1:57014660423:web:4a293931b269b67f54f062"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
