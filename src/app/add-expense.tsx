@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Platform, KeyboardAvoidingView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { X, Check } from 'lucide-react-native';
@@ -32,6 +32,9 @@ function getCategoryEmoji(icon: string): string {
 }
 
 const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const KEY_WIDTH = Math.floor((SCREEN_WIDTH - 32 - 16) / 3); // 32 padding + 16 for gaps
+const KEY_HEIGHT = Math.floor(KEY_WIDTH * 0.58);
 
 export default function AddExpenseScreen() {
   const { colors, isDark } = useTheme();
@@ -159,10 +162,36 @@ export default function AddExpenseScreen() {
 
             {/* Numpad */}
             <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 {KEYPAD.map((key) => (
-                  <Pressable key={key} onPress={() => handleKey(key)} style={({ pressed }) => ({ width: '31%', aspectRatio: 1.8, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? colors.muted : key === '⌫' ? '#EF444415' : colors.card, borderRadius: 16, margin: 4, borderWidth: 1, borderColor: colors.border })}>
-                    <Text style={{ fontSize: key === '⌫' ? 22 : 24, fontWeight: '600', color: key === '⌫' ? '#EF4444' : colors.primary }}>{key}</Text>
+                  <Pressable
+                    key={key}
+                    onPress={() => handleKey(key)}
+                    style={({ pressed }) => ({
+                      width: KEY_WIDTH,
+                      height: KEY_HEIGHT,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: pressed
+                        ? colors.muted
+                        : key === '⌫'
+                        ? 'rgba(239,68,68,0.1)'
+                        : colors.card,
+                      borderRadius: 16,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontSize: key === '⌫' ? 20 : 26,
+                        fontWeight: '600',
+                        color: key === '⌫' ? '#EF4444' : colors.primary,
+                      }}
+                    >
+                      {key}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
