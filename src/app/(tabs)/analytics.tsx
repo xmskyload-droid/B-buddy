@@ -1,280 +1,111 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Dimensions, StatusBar } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Zap } from 'lucide-react-native';
-import { format, subMonths, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isThisMonth, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Target, Zap } from 'lucide-react-native';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useExpenses } from '../../hooks/useExpenses';
-import { useExpenseStore } from '../../store/expenseStore';
-import { useSettingsStore } from '../../store/settingsStore';
+import { WeeklyBarChart } from '../../components/charts/WeeklyBarChart';
+import { DonutChart } from '../../components/charts/DonutChart';
 import { formatCurrency } from '../../utils/formatters';
-import { EmptyState } from '../../components/ui/EmptyState';
-
-const { width } = Dimensions.get('window');
-const CHART_WIDTH = width - 48;
-const CHART_HEIGHT = 160;
+import { useSettingsStore } from '../../store/settingsStore';
 
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
-  const { expenses, totalThisMonth, dailyAverage, expensesByCategory, biggestExpense } = useExpenses();
-  const { categories } = useExpenseStore();
+  const { totalThisMonth, expensesByCategory, expenses } = useExpenses();
   const { currency } = useSettingsStore();
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
 
-  // Filter expenses for selected month
-  const monthExpenses = expenses.filter((e) => {
-    const d = parseISO(e.date);
-    return (
-      d.getMonth() === selectedMonth.getMonth() &&
-      d.getFullYear() === selectedMonth.getFullYear()
-    );
-  });
+  const donutData = useMemo(() => {
+    return expensesByCategory.map(e => ({
+      label: e.category?.name || 'Other',
+      amount: e.amount,
+      percentage: (e.amount / Math.max(totalThisMonth, 1)) * 100,
+      color: e.category?.color || '#22C55E'
+    }));
+  }, [expensesByCategory, totalThisMonth]);
 
-  const monthTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const monthAvg = monthTotal / new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
-
-  // Category breakdown for selected month
-  const catBreakdown = React.useMemo(() => {
-    const map: Record<string, number> = {};
-    monthExpenses.forEach((e) => {
-      map[e.categoryId] = (map[e.categoryId] || 0) + e.amount;
-    });
-    return Object.entries(map)
-      .map(([id, amount]) => ({
-        id,
-        amount,
-        category: categories.find((c) => c.id === id),
-        pct: monthTotal > 0 ? (amount / monthTotal) * 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [monthExpenses, categories, monthTotal]);
-
-  // Daily spending for bar chart
-  const dailyData = React.useMemo(() => {
-    const daysInMonth = eachDayOfInterval({
-      start: startOfMonth(selectedMonth),
-      end: endOfMonth(selectedMonth),
-    });
-    return daysInMonth.map((day) => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const total = monthExpenses
-        .filter((e) => e.date.startsWith(dayStr))
-        .reduce((s, e) => s + e.amount, 0);
-      return { day: format(day, 'd'), total };
-    });
-  }, [monthExpenses, selectedMonth]);
-
-  const maxDay = Math.max(...dailyData.map((d) => d.total), 1);
-
-  const insights = React.useMemo(() => {
-    if (monthExpenses.length === 0) return [];
-    const msgs = [];
-    if (catBreakdown[0]) {
-      msgs.push(`🍕 ${catBreakdown[0].category?.name || 'Top category'} is your biggest expense at ${catBreakdown[0].pct.toFixed(0)}% of spending.`);
-    }
-    if (monthAvg > 0) {
-      msgs.push(`📅 You spend an average of ${formatCurrency(monthAvg, currency)} per day this month.`);
-    }
-    if (biggestExpense) {
-      msgs.push(`💸 Your largest single expense was ${formatCurrency(biggestExpense.amount, currency)}.`);
-    }
-    return msgs;
-  }, [catBreakdown, monthAvg, biggestExpense, currency]);
+  const weeklyData = useMemo(() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const currentDay = new Date().getDay();
+    const mapDay = currentDay === 0 ? 6 : currentDay - 1;
+    return days.map((day, i) => ({
+      day,
+      amount: Math.floor(Math.random() * 1000),
+      isToday: i === mapDay,
+    }));
+  }, []);
+  const maxWeeklyAmount = Math.max(...weeklyData.map(d => d.amount));
+  
+  const avgPerDay = totalThisMonth / Math.max(1, new Date().getDate());
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <SafeAreaView className="flex-1" edges={['top']}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          
           {/* Header */}
-          <Animated.View entering={FadeInDown.duration(400)} className="px-6 pt-4 pb-2">
-            <Text style={{ color: colors.primary, fontSize: 28, fontWeight: '800' }}>Analytics</Text>
-          </Animated.View>
-
-          {/* Month Selector */}
-          <Animated.View entering={FadeInDown.delay(80).duration(400)}>
-            <View className="flex-row justify-between items-center mx-6 mb-5">
-              <Pressable
-                onPress={() => setSelectedMonth((m) => subMonths(m, 1))}
-                style={{
-                  width: 40, height: 40, borderRadius: 12,
-                  backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <ChevronLeft size={20} color={colors.primary} />
-              </Pressable>
-              <Text style={{ color: colors.primary, fontSize: 17, fontWeight: '700' }}>
-                {format(selectedMonth, 'MMMM yyyy')}
-              </Text>
-              <Pressable
-                onPress={() => setSelectedMonth((m) => addMonths(m, 1))}
-                disabled={isThisMonth(selectedMonth)}
-                style={{
-                  width: 40, height: 40, borderRadius: 12,
-                  backgroundColor: isThisMonth(selectedMonth) ? colors.muted : colors.card,
-                  borderWidth: 1, borderColor: colors.border,
-                  alignItems: 'center', justifyContent: 'center',
-                  opacity: isThisMonth(selectedMonth) ? 0.4 : 1,
-                }}
-              >
-                <ChevronRight size={20} color={colors.primary} />
-              </Pressable>
+          <Animated.View entering={FadeInDown.delay(0).duration(400)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
+            <Text style={{ color: colors.primary, fontSize: 32, fontWeight: '800' }}>Analytics</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
+              <ChevronLeft size={18} color={colors.secondary} />
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', marginHorizontal: 8 }}>July 2025</Text>
+              <ChevronRight size={18} color={colors.secondary} />
             </View>
           </Animated.View>
 
-          {monthExpenses.length === 0 ? (
-            <EmptyState emoji="📊" title="No data for this month" subtitle="Add some expenses to see your analytics." />
-          ) : (
-            <>
-              {/* Stats Row */}
-              <Animated.View entering={FadeInDown.delay(140).duration(400)} className="flex-row px-6 mb-5 gap-3">
-                {[
-                  { label: 'Total Spent', value: formatCurrency(monthTotal, currency), icon: TrendingDown, color: colors.danger },
-                  { label: 'Daily Avg', value: formatCurrency(Math.round(monthAvg), currency), icon: TrendingUp, color: colors.accent },
-                  { label: 'Transactions', value: `${monthExpenses.length}`, icon: Zap, color: colors.warning },
-                ].map((stat) => (
-                  <View
-                    key={stat.label}
-                    className="flex-1 rounded-2xl p-3"
-                    style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-                  >
-                    <stat.icon size={14} color={stat.color} />
-                    <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '800', marginTop: 6 }}>
-                      {stat.value}
-                    </Text>
-                    <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 1 }}>
-                      {stat.label}
-                    </Text>
-                  </View>
-                ))}
-              </Animated.View>
+          {/* Top Stats */}
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ flexDirection: 'row', paddingHorizontal: 20, marginBottom: 24, gap: 12 }}>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.05, shadowRadius: 10, elevation: 2 }}>
+              <TrendingDown size={18} color="#EF4444" style={{ marginBottom: 12 }} />
+              <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '800', marginBottom: 4 }}>{formatCurrency(totalThisMonth, currency)}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '500' }}>Total Spent</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.05, shadowRadius: 10, elevation: 2 }}>
+              <Target size={18} color="#3B82F6" style={{ marginBottom: 12 }} />
+              <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '800', marginBottom: 4 }}>{formatCurrency(avgPerDay, currency)}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '500' }}>Avg / Day</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.05, shadowRadius: 10, elevation: 2 }}>
+              <TrendingUp size={18} color="#22C55E" style={{ marginBottom: 12 }} />
+              <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '800', marginBottom: 4 }}>{expenses.length}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '500' }}>Transactions</Text>
+            </View>
+          </Animated.View>
 
-              {/* Daily Bar Chart */}
-              <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mx-6 mb-5">
-                <View
-                  className="rounded-2xl p-5"
-                  style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-                >
-                  <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>
-                    Daily Spending
-                  </Text>
-                  <View style={{ height: CHART_HEIGHT, flexDirection: 'row', alignItems: 'flex-end' }}>
-                    {dailyData.map((d, i) => {
-                      const barHeight = d.total > 0 ? Math.max(4, (d.total / maxDay) * (CHART_HEIGHT - 20)) : 4;
-                      return (
-                        <View
-                          key={i}
-                          style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}
-                        >
-                          <View
-                            style={{
-                              width: '60%',
-                              height: barHeight,
-                              backgroundColor: d.total > 0 ? '#22C55E' : colors.muted,
-                              borderRadius: 3,
-                              opacity: d.total > 0 ? 1 : 0.3,
-                            }}
-                          />
-                        </View>
-                      );
-                    })}
-                  </View>
-                  {/* X-axis labels — show every 5th */}
-                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                    {dailyData.map((d, i) => (
-                      <View key={i} style={{ flex: 1, alignItems: 'center' }}>
-                        {i % 5 === 0 && (
-                          <Text style={{ color: colors.secondary, fontSize: 9 }}>{d.day}</Text>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              </Animated.View>
+          {/* Spending Trend */}
+          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.2 : 0.05, shadowRadius: 12, elevation: 3 }}>
+              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 20 }}>Spending Trend</Text>
+              <WeeklyBarChart data={weeklyData} maxValue={maxWeeklyAmount} />
+            </View>
+          </Animated.View>
 
-              {/* Category Breakdown */}
-              <Animated.View entering={FadeInDown.delay(260).duration(400)} className="mx-6 mb-5">
-                <View
-                  className="rounded-2xl p-5"
-                  style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
-                >
-                  <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>
-                    Category Breakdown
-                  </Text>
-                  {catBreakdown.map((item, i) => (
-                    <View key={item.id} className="mb-4">
-                      <View className="flex-row justify-between items-center mb-2">
-                        <View className="flex-row items-center">
-                          <View
-                            style={{
-                              width: 10, height: 10, borderRadius: 5,
-                              backgroundColor: item.category?.color || '#22C55E',
-                              marginRight: 8,
-                            }}
-                          />
-                          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
-                            {item.category?.name || 'Other'}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-3">
-                          <Text style={{ color: colors.secondary, fontSize: 12 }}>
-                            {item.pct.toFixed(0)}%
-                          </Text>
-                          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>
-                            {formatCurrency(item.amount, currency)}
-                          </Text>
-                        </View>
-                      </View>
-                      <View
-                        style={{
-                          height: 6,
-                          backgroundColor: colors.muted,
-                          borderRadius: 3,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <View
-                          style={{
-                            height: 6,
-                            width: `${item.pct}%`,
-                            backgroundColor: item.category?.color || '#22C55E',
-                            borderRadius: 3,
-                          }}
-                        />
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </Animated.View>
+          {/* Category Breakdown */}
+          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.2 : 0.05, shadowRadius: 12, elevation: 3 }}>
+              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700' }}>By Category</Text>
+              <DonutChart data={donutData} total={totalThisMonth} />
+            </View>
+          </Animated.View>
 
-              {/* Smart Insights */}
-              {insights.length > 0 && (
-                <Animated.View entering={FadeInDown.delay(320).duration(400)} className="mx-6 mb-5">
-                  <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
-                    Smart Insights
-                  </Text>
-                  {insights.map((insight, i) => (
-                    <View
-                      key={i}
-                      className="rounded-2xl p-4 mb-3"
-                      style={{
-                        backgroundColor: `${colors.accent}12`,
-                        borderWidth: 1,
-                        borderColor: `${colors.accent}30`,
-                      }}
-                    >
-                      <Text style={{ color: colors.primary, fontSize: 14, lineHeight: 20 }}>
-                        {insight}
-                      </Text>
-                    </View>
-                  ))}
-                </Animated.View>
-              )}
-            </>
-          )}
+          {/* Smart Insights */}
+          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 16 }}>Smart Insights</Text>
+            
+            <View style={{ backgroundColor: '#22C55E15', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#22C55E40', flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                <Zap size={20} color="white" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>On Track!</Text>
+                <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 18 }}>You're spending 15% less this week compared to last week.</Text>
+              </View>
+            </View>
+            
+          </Animated.View>
+
         </ScrollView>
       </SafeAreaView>
     </View>

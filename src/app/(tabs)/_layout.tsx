@@ -1,14 +1,9 @@
 import { Tabs, useRouter } from 'expo-router';
-import { View, Pressable, Platform } from 'react-native';
+import { View, Pressable, Platform, Text } from 'react-native';
 import { Home, List, PieChart, User, Plus } from 'lucide-react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
-import { Text } from 'react-native';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -22,12 +17,8 @@ function FABButton() {
 
   return (
     <AnimatedPressable
-      onPressIn={() => {
-        scale.value = withSpring(0.88, { damping: 10 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 10 });
-      }}
+      onPressIn={() => { scale.value = withSpring(0.88, { damping: 10 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 10 }); }}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         router.push('/add-expense');
@@ -41,21 +32,21 @@ function FABButton() {
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: '#22C55E',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.45,
-          shadowRadius: 14,
-          elevation: 10,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 10,
+          elevation: 6,
         },
         style,
       ]}
     >
-      <Plus size={26} color="white" strokeWidth={2.5} />
+      <Plus size={28} color="white" strokeWidth={2.5} />
     </AnimatedPressable>
   );
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const TABS = [
     { name: 'home', label: 'Home', Icon: Home },
@@ -71,15 +62,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         borderTopWidth: 1,
         borderTopColor: colors.border,
         paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-        paddingTop: 10,
+        paddingTop: 8,
         flexDirection: 'row',
         alignItems: 'flex-end',
+        height: Platform.OS === 'ios' ? 85 : 65,
       }}
     >
-      {/* First two tabs */}
       {TABS.slice(0, 2).map((tab) => {
-        const route = state.routes.find((r: any) => r.name === tab.name);
-        if (!route) return null;
         const isFocused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
         const color = isFocused ? '#22C55E' : colors.secondary;
 
@@ -90,22 +79,18 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate(tab.name);
             }}
-            style={{ flex: 1, alignItems: 'center', gap: 3 }}
+            style={{ flex: 1, alignItems: 'center', gap: 4 }}
           >
-            <tab.Icon size={22} color={color} strokeWidth={isFocused ? 2.5 : 2} />
-            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '700' : '500' }}>
-              {tab.label}
-            </Text>
+            <tab.Icon size={24} color={color} strokeWidth={isFocused ? 2.5 : 2} />
+            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '600' : '500' }}>{tab.label}</Text>
           </Pressable>
         );
       })}
 
-      {/* Center FAB */}
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4 }}>
         <FABButton />
       </View>
 
-      {/* Last two tabs */}
       {TABS.slice(2).map((tab) => {
         const isFocused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
         const color = isFocused ? '#22C55E' : colors.secondary;
@@ -117,12 +102,10 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate(tab.name);
             }}
-            style={{ flex: 1, alignItems: 'center', gap: 3 }}
+            style={{ flex: 1, alignItems: 'center', gap: 4 }}
           >
-            <tab.Icon size={22} color={color} strokeWidth={isFocused ? 2.5 : 2} />
-            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '700' : '500' }}>
-              {tab.label}
-            </Text>
+            <tab.Icon size={24} color={color} strokeWidth={isFocused ? 2.5 : 2} />
+            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '600' : '500' }}>{tab.label}</Text>
           </Pressable>
         );
       })}
@@ -131,8 +114,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function TabLayout() {
-  const { colors } = useTheme();
-
   return (
     <Tabs
       screenOptions={{ headerShown: false }}

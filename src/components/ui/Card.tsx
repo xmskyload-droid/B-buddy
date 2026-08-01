@@ -1,32 +1,33 @@
-import React from 'react';
-import { View, ViewProps } from 'react-native';
+import React, { ReactNode } from 'react';
+import { View, ViewStyle, Pressable } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
-interface CardProps extends ViewProps {
-  children: React.ReactNode;
-  className?: string;
-  noPadding?: boolean;
-}
-
-export const Card = ({ children, className = '', noPadding = false, style, ...props }: CardProps) => {
-  const { isDark, colors } = useTheme();
+export const Card = ({ children, style, onPress }: { children: ReactNode; style?: ViewStyle; onPress?: () => void }) => {
+  const { colors, isDark } = useTheme();
+  
+  const cardStyle = { 
+    backgroundColor: colors.card, 
+    borderRadius: 20, 
+    padding: 20, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: isDark ? 0.3 : 0.06, 
+    shadowRadius: 12, 
+    elevation: isDark ? 4 : 3, 
+    borderWidth: 1, 
+    borderColor: colors.border 
+  };
+  
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={[cardStyle, style]}>
+        {children}
+      </Pressable>
+    );
+  }
   
   return (
-    <View
-      className={`rounded-[22px] overflow-hidden ${!noPadding ? 'p-4' : ''} ${className}`}
-      style={[
-        { backgroundColor: isDark ? colors.card : 'white' },
-        !isDark ? {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 2,
-        } : {},
-        style
-      ]}
-      {...props}
-    >
+    <View style={[cardStyle, style]}>
       {children}
     </View>
   );

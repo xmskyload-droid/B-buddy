@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Trash2, Check } from 'lucide-react-native';
+import { X, Trash2, Check } from 'lucide-react-native';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -31,12 +32,17 @@ const PAYMENT_METHODS = [
   { id: PaymentMethod.WALLET, label: 'Wallet', emoji: '👛' },
 ];
 
-const CATEGORY_EMOJI_MAP: Record<string, string> = {
-  pizza: '🍕', car: '🚗', fuel: '⛽', 'shopping-bag': '🛍️',
-  'file-text': '🧾', activity: '💊', book: '📚', plane: '✈️',
-  film: '🎬', repeat: '🔄', 'trending-up': '📈', 'dollar-sign': '💰',
-  gift: '🎁', home: '🏠', grid: '📦',
-};
+const KEYPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+
+function getCategoryEmoji(icon: string): string {
+  const map: Record<string, string> = {
+    pizza: '🍕', car: '🚗', fuel: '⛽', 'shopping-bag': '🛍️',
+    'file-text': '🧾', activity: '💊', book: '📚', plane: '✈️',
+    film: '🎬', repeat: '🔄', 'trending-up': '📈', 'dollar-sign': '💰',
+    gift: '🎁', home: '🏠', grid: '📦',
+  };
+  return map[icon] || '📦';
+}
 
 export default function ExpenseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,21 +61,43 @@ export default function ExpenseDetailScreen() {
   );
   const [notes, setNotes] = useState(expense?.notes || '');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const saveScale = useSharedValue(1);
+  const saveStyle = useAnimatedStyle(() => ({ transform: [{ scale: saveScale.value }] }));
 
   if (!expense) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <Text style={{ color: colors.secondary }}>Expense not found.</Text>
       </View>
     );
   }
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
+  const displayAmount = amount || '0';
+
+  const handleKey = useCallback((key: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (key === '⌫') {
+      setAmount((prev) => prev.slice(0, -1));
+    } else if (key === '.') {
+      if (!amount.includes('.')) setAmount((prev) => prev + '.');
+    } else {
+      if (amount.length >= 10) return;
+      if (amount === '0' && key !== '.') setAmount(key);
+      else setAmount((prev) => prev + key);
+    }
+  }, [amount]);
 
   const handleSave = async () => {
     const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0) return;
+    if (!numAmount || numAmount <= 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
     setSaving(true);
+    saveScale.value = withSpring(0.95);
     await updateExpense({
       ...expense,
       amount: numAmount,
@@ -78,9 +106,11 @@ export default function ExpenseDetailScreen() {
       notes: notes.trim(),
       updatedAt: new Date().toISOString(),
     });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(false);
-    router.back();
+    setSaved(true);
+    saveScale.value = withSpring(1);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => { router.back(); }, 400);
   };
 
   const handleDelete = () => {
@@ -99,160 +129,97 @@ export default function ExpenseDetailScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <SafeAreaView className="flex-1">
-        <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingHorizontal: 24,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
-            }}
-          >
-            <Pressable
-              onPress={() => router.back()}
-              style={{
-                width: 36, height: 36, borderRadius: 10,
-                backgroundColor: colors.muted, alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <ArrowLeft size={18} color={colors.primary} />
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
+            <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
+              <X size={20} color={colors.primary} />
             </Pressable>
-            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700' }}>
-              Edit Expense
-            </Text>
-            <Pressable
-              onPress={handleDelete}
-              style={{
-                width: 36, height: 36, borderRadius: 10,
-                backgroundColor: `${colors.danger}18`, alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Trash2 size={18} color={colors.danger} />
+            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '800' }}>Edit Expense</Text>
+            <Pressable onPress={handleDelete} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#EF444415', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={20} color="#EF4444" />
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
-            {/* Date Info */}
-            <Text style={{ color: colors.secondary, fontSize: 13, marginBottom: 20 }}>
-              Originally added on {formatDate(expense.date)}
-            </Text>
-
-            {/* Amount */}
-            <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 8 }}>
-              AMOUNT
-            </Text>
-            <View
-              style={{
-                backgroundColor: colors.card, borderRadius: 16, borderWidth: 1,
-                borderColor: colors.border, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 20,
-              }}
-            >
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-                style={{ color: colors.primary, fontSize: 24, fontWeight: '700' }}
-                placeholder="0"
-                placeholderTextColor={colors.secondary}
-              />
-            </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <Text style={{ color: colors.secondary, fontSize: 13, textAlign: 'center', marginTop: 10 }}>Added on {formatDate(expense.date)}</Text>
+            
+            {/* Amount Hero */}
+            <Animated.View entering={FadeInDown.delay(50).duration(400)} style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ color: colors.secondary, fontSize: 24, fontWeight: '600', marginRight: 8, marginTop: 12 }}>{currency}</Text>
+                <Text style={{ color: amount ? colors.primary : colors.secondary, fontSize: 56, fontWeight: '800' }}>{displayAmount}</Text>
+              </View>
+              {selectedCategory && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, backgroundColor: `${selectedCategory.color}20`, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 }}>
+                  <Text style={{ fontSize: 16, marginRight: 8 }}>{getCategoryEmoji(selectedCategory.icon)}</Text>
+                  <Text style={{ color: selectedCategory.color, fontSize: 14, fontWeight: '700' }}>{selectedCategory.name}</Text>
+                </View>
+              )}
+            </Animated.View>
 
             {/* Category */}
-            <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 10 }}>
-              CATEGORY
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-              {categories.map((cat) => (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setCategoryId(cat.id)}
-                  style={{
-                    alignItems: 'center', marginRight: 12, width: 64,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 52, height: 52, borderRadius: 16,
-                      backgroundColor: categoryId === cat.id ? cat.color : `${cat.color}22`,
-                      alignItems: 'center', justifyContent: 'center', marginBottom: 5,
-                      borderWidth: categoryId === cat.id ? 2 : 0, borderColor: cat.color,
-                    }}
-                  >
-                    <Text style={{ fontSize: 22 }}>{CATEGORY_EMOJI_MAP[cat.icon] || '📦'}</Text>
-                  </View>
-                  <Text
-                    style={{
-                      color: categoryId === cat.id ? cat.color : colors.secondary,
-                      fontSize: 10, fontWeight: categoryId === cat.id ? '700' : '400', textAlign: 'center',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {cat.name.split(' ')[0]}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12, paddingHorizontal: 20 }}>CATEGORY</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+                {categories.map((cat) => (
+                  <Pressable key={cat.id} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setCategoryId(cat.id); }} style={{ alignItems: 'center', width: 56 }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: categoryId === cat.id ? cat.color : `${colors.card}`, alignItems: 'center', justifyContent: 'center', marginBottom: 8, borderWidth: categoryId === cat.id ? 2 : 1, borderColor: categoryId === cat.id ? cat.color : colors.border, opacity: categoryId === cat.id ? 1 : 0.7 }}>
+                      <Text style={{ fontSize: 24 }}>{getCategoryEmoji(cat.icon)}</Text>
+                    </View>
+                    <Text style={{ color: categoryId === cat.id ? cat.color : colors.secondary, fontSize: 10, fontWeight: categoryId === cat.id ? '700' : '500' }} numberOfLines={1}>{cat.name.split(' ')[0]}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Animated.View>
 
             {/* Payment Method */}
-            <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 10 }}>
-              PAYMENT METHOD
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-              {PAYMENT_METHODS.map((method) => (
-                <Pressable
-                  key={method.id}
-                  onPress={() => setPaymentMethod(method.id)}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', marginRight: 8,
-                    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14,
-                    backgroundColor: paymentMethod === method.id ? '#22C55E' : colors.card,
-                    borderWidth: 1, borderColor: paymentMethod === method.id ? '#22C55E' : colors.border,
-                  }}
-                >
-                  <Text style={{ fontSize: 14, marginRight: 6 }}>{method.emoji}</Text>
-                  <Text style={{ color: paymentMethod === method.id ? 'white' : colors.secondary, fontSize: 13, fontWeight: '600' }}>
-                    {method.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <Animated.View entering={FadeInDown.delay(150).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12, paddingHorizontal: 20 }}>PAYMENT</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+                {PAYMENT_METHODS.map((method) => (
+                  <Pressable key={method.id} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setPaymentMethod(method.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, backgroundColor: paymentMethod === method.id ? '#22C55E' : colors.card, borderWidth: 1, borderColor: paymentMethod === method.id ? '#22C55E' : colors.border }}>
+                    <Text style={{ fontSize: 14, marginRight: 8 }}>{method.emoji}</Text>
+                    <Text style={{ color: paymentMethod === method.id ? 'white' : colors.primary, fontSize: 13, fontWeight: '600' }}>{method.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </Animated.View>
 
             {/* Notes */}
-            <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 10 }}>
-              NOTES
-            </Text>
-            <TextInput
-              placeholder="Add a note..."
-              placeholderTextColor={colors.secondary}
-              value={notes}
-              onChangeText={setNotes}
-              style={{
-                backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-                paddingHorizontal: 16, paddingVertical: 12, color: colors.primary, fontSize: 15, height: 52, marginBottom: 32,
-              }}
-            />
+            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+              <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>NOTE (OPTIONAL)</Text>
+              <TextInput placeholder="Coffee with friends..." placeholderTextColor={colors.secondary} value={notes} onChangeText={setNotes} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingVertical: 14, color: colors.primary, fontSize: 15, fontWeight: '500' }} />
+            </Animated.View>
+
+            {/* Numpad */}
+            <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {KEYPAD.map((key) => (
+                  <Pressable key={key} onPress={() => handleKey(key)} style={({ pressed }) => ({ width: '31%', aspectRatio: 1.8, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? colors.muted : key === '⌫' ? '#EF444415' : colors.card, borderRadius: 16, margin: 4, borderWidth: 1, borderColor: colors.border })}>
+                    <Text style={{ fontSize: key === '⌫' ? 22 : 24, fontWeight: '600', color: key === '⌫' ? '#EF4444' : colors.primary }}>{key}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Animated.View>
 
             {/* Save Button */}
-            <Pressable
-              onPress={handleSave}
-              disabled={saving}
-              style={{
-                height: 58, borderRadius: 18, backgroundColor: '#22C55E',
-                alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
-              }}
-            >
-              <Check size={20} color="white" />
-              <Text style={{ color: 'white', fontSize: 16, fontWeight: '800', marginLeft: 8 }}>
-                {saving ? 'Saving...' : 'Update Expense'}
-              </Text>
-            </Pressable>
+            <Animated.View entering={FadeInDown.delay(300).duration(400)} style={[{ paddingHorizontal: 20 }, saveStyle]}>
+              <Pressable onPress={handleSave} disabled={saving || saved || !amount || parseFloat(amount) <= 0} style={{ height: 58, borderRadius: 18, backgroundColor: saved ? '#16A34A' : '#22C55E', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', opacity: !amount || parseFloat(amount) <= 0 ? 0.5 : 1 }}>
+                {saved ? (
+                  <>
+                    <Check size={22} color="white" />
+                    <Text style={{ color: 'white', fontSize: 17, fontWeight: '800', marginLeft: 8 }}>Updated!</Text>
+                  </>
+                ) : (
+                  <Text style={{ color: 'white', fontSize: 17, fontWeight: '800' }}>Update Expense</Text>
+                )}
+              </Pressable>
+            </Animated.View>
+
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

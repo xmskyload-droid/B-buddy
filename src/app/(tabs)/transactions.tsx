@@ -1,22 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  SectionList,
-  StatusBar,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, SectionList, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Search, X } from 'lucide-react-native';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useExpenses } from '../../hooks/useExpenses';
 import { ExpenseCard } from '../../components/cards/ExpenseCard';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { groupExpensesByDate } from '../../utils/formatters';
-import { formatCurrency } from '../../utils/formatters';
+import { groupExpensesByDate, formatCurrency } from '../../utils/formatters';
 import { useSettingsStore } from '../../store/settingsStore';
 
 export default function TransactionsScreen() {
@@ -24,7 +16,6 @@ export default function TransactionsScreen() {
   const { expenses, totalThisMonth } = useExpenses();
   const { currency } = useSettingsStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return expenses.filter((e) => {
@@ -41,55 +32,61 @@ export default function TransactionsScreen() {
   }, [filtered]);
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <SafeAreaView className="flex-1" edges={['top']}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)} className="px-6 pt-4 pb-3">
-          <View className="flex-row justify-between items-center mb-1">
-            <Text style={{ color: colors.primary, fontSize: 28, fontWeight: '800' }}>
+        <Animated.View entering={FadeInDown.duration(400)} style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ color: colors.primary, fontSize: 32, fontWeight: '800' }}>
               Transactions
             </Text>
             <View
               style={{
-                backgroundColor: `${colors.accent}18`,
-                borderRadius: 10,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
+                backgroundColor: '#22C55E20',
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
               }}
             >
-              <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '700' }}>
+              <Text style={{ color: '#22C55E', fontSize: 14, fontWeight: '700' }}>
                 {formatCurrency(totalThisMonth, currency)}
               </Text>
             </View>
           </View>
-          <Text style={{ color: colors.secondary, fontSize: 13 }}>
-            {expenses.length} transactions total
-          </Text>
         </Animated.View>
 
         {/* Search Bar */}
-        <Animated.View entering={FadeInDown.delay(80).duration(400)} className="px-6 mb-4">
+        <Animated.View entering={FadeInDown.delay(80).duration(400)} style={{ paddingHorizontal: 20, marginBottom: 16 }}>
           <View
-            className="flex-row items-center rounded-2xl px-4"
             style={{
+              flexDirection: 'row',
+              alignItems: 'center',
               backgroundColor: colors.card,
               height: 48,
+              borderRadius: 16,
+              paddingHorizontal: 16,
               borderWidth: 1,
               borderColor: colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.2 : 0.05,
+              shadowRadius: 8,
+              elevation: 2
             }}
           >
             <Search size={18} color={colors.secondary} />
             <TextInput
-              placeholder="Search transactions..."
+              placeholder="Search..."
               placeholderTextColor={colors.secondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               style={{
                 flex: 1,
-                marginLeft: 10,
+                marginLeft: 12,
                 color: colors.primary,
                 fontSize: 15,
+                fontWeight: '500'
               }}
             />
             {searchQuery.length > 0 && (
@@ -105,29 +102,17 @@ export default function TransactionsScreen() {
           <EmptyState
             emoji="🔍"
             title={searchQuery ? 'No results found' : 'No transactions yet'}
-            subtitle={
-              searchQuery
-                ? `No transactions matching "${searchQuery}"`
-                : 'Your expenses will appear here once you add them.'
-            }
+            subtitle={searchQuery ? `No transactions matching "${searchQuery}"` : 'Your expenses will appear here once you add them.'}
           />
         ) : (
           <SectionList
             sections={sections}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-            renderSectionHeader={({ section: { title, data } }) => (
-              <View
-                className="flex-row justify-between items-center py-2 mb-1"
-                style={{ backgroundColor: colors.background }}
-              >
-                <Text
-                  style={{ color: colors.secondary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}
-                >
-                  {title.toUpperCase()}
-                </Text>
-                <Text style={{ color: colors.secondary, fontSize: 12 }}>
-                  {data.length} items
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+            renderSectionHeader={({ section: { title } }) => (
+              <View style={{ paddingVertical: 8, marginBottom: 8, backgroundColor: colors.background }}>
+                <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  {title}
                 </Text>
               </View>
             )}

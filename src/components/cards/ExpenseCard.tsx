@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import Animated, { FadeInDown, SlideOutRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -29,7 +29,7 @@ interface ExpenseCardProps {
 
 export const ExpenseCard = ({ expense, delay = 0 }: ExpenseCardProps) => {
   const { categories } = useExpenseStore();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { currency } = useSettingsStore();
   const router = useRouter();
 
@@ -39,27 +39,37 @@ export const ExpenseCard = ({ expense, delay = 0 }: ExpenseCardProps) => {
   const catName = category?.name || 'Other';
   const pmLabel = PAYMENT_METHOD_SHORT[expense.paymentMethod] || expense.paymentMethod;
 
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }]
+  }));
+
   return (
     <Animated.View
       entering={FadeInDown.delay(delay).duration(350)}
-      exiting={SlideOutRight.duration(250)}
-      style={{ marginBottom: 10 }}
+      style={[{ marginBottom: 12 }, animatedStyle]}
     >
       <Pressable
+        onPressIn={() => { scale.value = withSpring(0.96); }}
+        onPressOut={() => { scale.value = withSpring(1); }}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push(`/expense/${expense.id}`);
         }}
-        style={({ pressed }) => ({
+        style={{
           backgroundColor: colors.card,
-          borderRadius: 18,
-          padding: 14,
+          borderRadius: 20,
+          padding: 16,
           flexDirection: 'row',
           alignItems: 'center',
           borderWidth: 1,
           borderColor: colors.border,
-          opacity: pressed ? 0.85 : 1,
-        })}
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isDark ? 0.3 : 0.04,
+          shadowRadius: 8,
+          elevation: isDark ? 4 : 2,
+        }}
       >
         {/* Category Icon */}
         <View
@@ -70,60 +80,58 @@ export const ExpenseCard = ({ expense, delay = 0 }: ExpenseCardProps) => {
             backgroundColor: `${catColor}20`,
             alignItems: 'center',
             justifyContent: 'center',
-            marginRight: 12,
+            marginRight: 14,
           }}
         >
           <Text style={{ fontSize: 22 }}>{emoji}</Text>
         </View>
 
         {/* Details */}
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{ color: colors.primary, fontSize: 15, fontWeight: '600', marginBottom: 3 }}
-            numberOfLines={1}
-          >
-            {catName}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+            <Text
+              style={{ color: colors.primary, fontSize: 15, fontWeight: '600', marginRight: 6 }}
+              numberOfLines={1}
+            >
+              {catName}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: colors.secondary, fontSize: 12 }}>
               {formatRelativeDate(expense.date)}
             </Text>
-            <View
-              style={{
-                width: 3,
-                height: 3,
-                borderRadius: 1.5,
-                backgroundColor: colors.secondary,
-                opacity: 0.5,
-              }}
-            />
-            <View
-              style={{
-                backgroundColor: colors.muted,
-                borderRadius: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-              }}
-            >
-              <Text style={{ color: colors.secondary, fontSize: 10, fontWeight: '600' }}>
-                {pmLabel}
-              </Text>
-            </View>
+            {expense.notes ? (
+              <>
+                <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.secondary, opacity: 0.5, marginHorizontal: 6 }} />
+                <Text
+                  style={{ color: colors.secondary, fontSize: 12, flex: 1 }}
+                  numberOfLines={1}
+                >
+                  {expense.notes}
+                </Text>
+              </>
+            ) : null}
           </View>
-          {expense.notes ? (
-            <Text
-              style={{ color: colors.secondary, fontSize: 12, marginTop: 2 }}
-              numberOfLines={1}
-            >
-              {expense.notes}
-            </Text>
-          ) : null}
         </View>
 
-        {/* Amount */}
-        <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '800' }}>
-          -{formatCurrency(expense.amount, currency)}
-        </Text>
+        {/* Amount & Badge */}
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '800', marginBottom: 4 }}>
+            -{formatCurrency(expense.amount, currency)}
+          </Text>
+          <View
+            style={{
+              backgroundColor: colors.muted,
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
+          >
+            <Text style={{ color: colors.secondary, fontSize: 10, fontWeight: '600' }}>
+              {pmLabel}
+            </Text>
+          </View>
+        </View>
       </Pressable>
     </Animated.View>
   );

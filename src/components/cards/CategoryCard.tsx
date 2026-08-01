@@ -1,36 +1,57 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { Card } from '../ui/Card';
-import { formatCurrency } from '../../utils/formatters';
-import { Category } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CategoryCardProps {
-  category: Category;
-  amount: number;
-  total: number;
+  name: string;
+  amount: string;
+  color: string;
+  icon: string;
 }
 
-export const CategoryCard = ({ category, amount, total }: CategoryCardProps) => {
-  const percentage = total > 0 ? (amount / total) * 100 : 0;
-  
+export const CategoryCard = ({ name, amount, color, icon }: CategoryCardProps) => {
+  const { colors, isDark } = useTheme();
+
   return (
-    <Card className="w-40 mr-4 p-4">
-      <View 
-        className="w-10 h-10 rounded-full items-center justify-center mb-3"
-        style={{ backgroundColor: `${category.color}20` }}
+    <View
+      style={{
+        width: 90,
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        padding: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
+        marginRight: 12,
+      }}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: `${color}20`,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 8,
+        }}
       >
-        <Text style={{ fontSize: 16 }}>{category.icon === 'pizza' ? '🍕' : '📊'}</Text>
+        <Text style={{ fontSize: 18 }}>{icon}</Text>
       </View>
       
-      <Text className="text-secondary text-xs mb-1" numberOfLines={1}>{category.name}</Text>
-      <Text className="text-primary font-bold text-lg mb-3">{formatCurrency(amount)}</Text>
+      <Text 
+        style={{ color: colors.primary, fontSize: 13, fontWeight: '700', marginBottom: 2 }}
+        numberOfLines={1}
+      >
+        {amount}
+      </Text>
       
-      <View className="h-1.5 w-full bg-border rounded-full overflow-hidden">
-        <View 
-          className="h-full rounded-full"
-          style={{ width: `${percentage}%`, backgroundColor: category.color }} 
-        />
-      </View>
-    </Card>
+      <Text 
+        style={{ color: colors.secondary, fontSize: 10, fontWeight: '500' }}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+    </View>
   );
 };
