@@ -29,6 +29,8 @@ export default function LoginScreen() {
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
+      // Save local flag so next app launch skips login screen instantly
+      await AsyncStorage.setItem('coinly_user_authed', 'true');
       const hasLaunched = await AsyncStorage.getItem('hasLaunched');
       if (hasLaunched) {
         router.replace('/(tabs)/home');

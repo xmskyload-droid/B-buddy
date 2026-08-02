@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { format } from 'date-fns';
+import { format, startOfWeek, isToday as dateFnsIsToday } from 'date-fns';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useExpenses } from '../../hooks/useExpenses';
@@ -38,7 +38,15 @@ function getCategoryEmoji(icon: string): string {
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
-  const { totalThisMonth, totalToday, recentExpenses, expensesByCategory } = useExpenses();
+  const {
+    totalThisMonth,
+    totalToday,
+    totalThisWeek,
+    dailyAverage,
+    recentExpenses,
+    expensesByCategory,
+    weeklyData: rawWeeklyData,
+  } = useExpenses();
   const { monthlyBudget } = useBudget();
   const { loadExpenses, loadCategories, loadBudgets, loading } = useExpenseStore();
   const { name, currency } = useSettingsStore();
@@ -55,18 +63,21 @@ export default function HomeScreen() {
     loadBudgets();
   };
 
-  // Mock weekly data for preview
-  const weeklyData = useMemo(() => {
+  // Build real weekly chart data from calculations engine (Mon–Sun)
+  const weeklyChartData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const currentDay = new Date().getDay();
-    const mapDay = currentDay === 0 ? 6 : currentDay - 1; // 0=Mon, 6=Sun
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Sun, 1=Mon...6=Sat
+    const todayIndex = currentDay === 0 ? 6 : currentDay - 1; // convert to Mon=0 ... Sun=6
+
     return days.map((day, i) => ({
       day,
-      amount: Math.floor(Math.random() * 1000),
-      isToday: i === mapDay,
+      amount: rawWeeklyData[i] ?? 0,
+      isToday: i === todayIndex,
     }));
-  }, []);
-  const maxWeeklyAmount = Math.max(...weeklyData.map(d => d.amount));
+  }, [rawWeeklyData]);
+
+  const maxWeeklyAmount = Math.max(...weeklyChartData.map(d => d.amount), 1);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -106,17 +117,17 @@ export default function HomeScreen() {
           {loading ? (
             <View style={{ paddingHorizontal: 20 }}><SkeletonSummaryCard /></View>
           ) : (
-            <SummaryCard 
-              totalSpent={totalThisMonth} 
-              budget={monthlyBudget} 
+            <SummaryCard
+              totalSpent={totalThisMonth}
+              budget={monthlyBudget}
               transactionCount={recentExpenses.length}
-              avgPerDay={totalThisMonth / Math.max(1, new Date().getDate())}
+              avgPerDay={dailyAverage}
               todaySpent={totalToday}
-              thisWeekSpent={totalThisMonth * 0.4} // Placeholder
+              thisWeekSpent={totalThisWeek}
             />
           )}
 
-          {/* Weekly Spending */}
+          {/* Weekly Spending Chart */}
           <Animated.View entering={FadeInDown.delay(100).duration(500)} style={{ marginBottom: 28, paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700' }}>This Week</Text>
@@ -125,7 +136,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-              <WeeklyBarChart data={weeklyData} maxValue={maxWeeklyAmount} />
+              <WeeklyBarChart data={weeklyChartData} maxValue={maxWeeklyAmount} />
             </View>
           </Animated.View>
 
