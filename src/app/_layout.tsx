@@ -5,6 +5,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeStore } from '../store/themeStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { BiometricLockOverlay } from '../components/modals/BiometricLockOverlay';
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -18,6 +20,11 @@ export default function RootLayout() {
   });
   
   const { mode } = useThemeStore();
+  const { loadSettings } = useSettingsStore();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {
@@ -40,6 +47,7 @@ export default function RootLayout() {
           <Stack.Screen name="add-expense" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expense/[id]" options={{ presentation: 'modal' }} />
         </Stack>
+        <BiometricLockOverlay />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
