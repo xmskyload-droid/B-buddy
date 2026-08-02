@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import { View, Pressable, Platform, Text } from 'react-native';
-import { Home, List, Calendar as CalendarIcon, PieChart, User, Plus } from 'lucide-react-native';
+import { Home, List, PieChart, User, Plus } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
@@ -48,10 +48,12 @@ function FABButton() {
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const { colors } = useTheme();
 
-  const TABS = [
+  // 4 tabs only — Calendar moved to Profile settings
+  const LEFT_TABS = [
     { name: 'home', label: 'Home', Icon: Home },
     { name: 'transactions', label: 'List', Icon: List },
-    { name: 'calendar', label: 'Calendar', Icon: CalendarIcon },
+  ];
+  const RIGHT_TABS = [
     { name: 'analytics', label: 'Analytics', Icon: PieChart },
     { name: 'profile', label: 'Profile', Icon: User },
   ];
@@ -69,10 +71,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         height: Platform.OS === 'ios' ? 85 : 65,
       }}
     >
-      {TABS.slice(0, 2).map((tab) => {
+      {LEFT_TABS.map((tab) => {
         const isFocused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
         const color = isFocused ? '#22C55E' : colors.secondary;
-
         return (
           <Pressable
             key={tab.name}
@@ -92,10 +93,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         <FABButton />
       </View>
 
-      {TABS.slice(2).map((tab) => {
+      {RIGHT_TABS.map((tab) => {
         const isFocused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
         const color = isFocused ? '#22C55E' : colors.secondary;
-
         return (
           <Pressable
             key={tab.name}
@@ -122,7 +122,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="transactions" />
-      <Tabs.Screen name="calendar" />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen name="analytics" />
       <Tabs.Screen name="profile" />
     </Tabs>

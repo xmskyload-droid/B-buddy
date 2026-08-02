@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, Pressable, StatusBar, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Moon, DollarSign, Globe, Lock, Shield, Download, FileText, Cloud, Star, MessageSquare, Info, Trash2, ChevronRight } from 'lucide-react-native';
+import { Moon, DollarSign, Globe, Lock, Shield, Download, FileText, Cloud, Star, MessageSquare, Info, Trash2, ChevronRight, Calendar } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import Constants from 'expo-constants';
 
@@ -20,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 const CURRENCIES = ['₹', '$', '€', '£', '¥', 'A$'];
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { colors, isDark, toggleTheme } = useTheme();
   const {
     currency,
@@ -262,6 +264,8 @@ export default function ProfileScreen() {
             {renderRow(Moon, 'Dark Mode', undefined, false, true, isDark, toggleTheme)}
             <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />
             {renderRow(DollarSign, 'Currency', `${currency}`, false, false, undefined, undefined, handleSelectCurrency)}
+            <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />
+            {renderRow(Calendar, 'Expense Calendar', undefined, false, false, undefined, undefined, () => router.navigate('/(tabs)/calendar' as any))}
             <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />
             {renderRow(Globe, 'Language', language)}
           </Animated.View>
