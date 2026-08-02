@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { X, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useTheme } from '../hooks/useTheme';
 import { useExpenseStore } from '../store/expenseStore';
@@ -36,6 +36,7 @@ export default function AddExpenseScreen() {
   const { addExpense, categories: storeCategories } = useExpenseStore();
   const { currency } = useSettingsStore();
   const router = useRouter();
+  const params = useLocalSearchParams<{ initialDate?: string }>();
 
   const categories = storeCategories.length > 0 ? storeCategories : defaultCategories;
 
@@ -43,6 +44,7 @@ export default function AddExpenseScreen() {
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'food');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.UPI);
   const [notes, setNotes] = useState('');
+  const [customDate, setCustomDate] = useState<string>(params.initialDate || new Date().toISOString());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -61,7 +63,7 @@ export default function AddExpenseScreen() {
       id: Date.now().toString(),
       amount: numAmount,
       categoryId,
-      date: new Date().toISOString(),
+      date: customDate,
       paymentMethod,
       notes: notes.trim(),
       createdAt: new Date().toISOString(),

@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import { View, Pressable, Platform, Text } from 'react-native';
-import { Home, List, PieChart, User, Plus } from 'lucide-react-native';
+import { Home, List, Calendar as CalendarIcon, PieChart, User, Plus } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../hooks/useTheme';
@@ -25,8 +25,8 @@ function FABButton() {
       }}
       style={[
         {
-          width: 58,
-          height: 58,
+          width: 54,
+          height: 54,
           borderRadius: 18,
           backgroundColor: '#22C55E',
           alignItems: 'center',
@@ -40,17 +40,18 @@ function FABButton() {
         style,
       ]}
     >
-      <Plus size={28} color="white" strokeWidth={2.5} />
+      <Plus size={26} color="white" strokeWidth={2.5} />
     </AnimatedPressable>
   );
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const TABS = [
     { name: 'home', label: 'Home', Icon: Home },
-    { name: 'transactions', label: 'Transactions', Icon: List },
+    { name: 'transactions', label: 'List', Icon: List },
+    { name: 'calendar', label: 'Calendar', Icon: CalendarIcon },
     { name: 'analytics', label: 'Analytics', Icon: PieChart },
     { name: 'profile', label: 'Profile', Icon: User },
   ];
@@ -81,8 +82,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             }}
             style={{ flex: 1, alignItems: 'center', gap: 4 }}
           >
-            <tab.Icon size={24} color={color} strokeWidth={isFocused ? 2.5 : 2} />
-            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '600' : '500' }}>{tab.label}</Text>
+            <tab.Icon size={22} color={color} strokeWidth={isFocused ? 2.5 : 2} />
+            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '700' : '500' }}>{tab.label}</Text>
           </Pressable>
         );
       })}
@@ -104,8 +105,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             }}
             style={{ flex: 1, alignItems: 'center', gap: 4 }}
           >
-            <tab.Icon size={24} color={color} strokeWidth={isFocused ? 2.5 : 2} />
-            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '600' : '500' }}>{tab.label}</Text>
+            <tab.Icon size={22} color={color} strokeWidth={isFocused ? 2.5 : 2} />
+            <Text style={{ color, fontSize: 10, fontWeight: isFocused ? '700' : '500' }}>{tab.label}</Text>
           </Pressable>
         );
       })}
@@ -121,6 +122,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="transactions" />
+      <Tabs.Screen name="calendar" />
       <Tabs.Screen name="analytics" />
       <Tabs.Screen name="profile" />
     </Tabs>
