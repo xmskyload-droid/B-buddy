@@ -117,24 +117,44 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     if (!uid) return;
     set({ syncing: true });
     try {
-      // 1. Download all expenses and budgets from Firestore specifically for this authenticated user ID
+      // 1. Fetch cloud data for current user
       const cloudExpenses = await loadExpensesFromCloud();
       const cloudBudgets = await loadBudgetsFromCloud();
 
-      // 2. Wipe local SQLite to prevent previous account's expenses from leaking into this account
-      const database = await openDb();
-      await database.execAsync('DELETE FROM expenses; DELETE FROM budgets;');
+      // 2. Fetch current local SQLite expenses
+      const localExpenses = await queries.getExpenses();
+      const localBudgets = await queries.getBudgets();
 
-      // 3. Save only this account's cloud data into local SQLite
-      for (const exp of cloudExpenses) {
+      // 3. Merge: Cloud data takes precedence, local data is preserved and uploaded to cloud if not in cloud
+      const mergedExpMap = new Map<string, Expense>();
+      localExpenses.forEach(e => mergedExpMap.set(e.id, e));
+      cloudExpenses.forEach(e => mergedExpMap.set(e.id, e));
+
+      const mergedBudgetsMap = new Map<string, Budget>();
+      localBudgets.forEach(b => mergedBudgetsMap.set(b.id, b));
+      cloudBudgets.forEach(b => mergedBudgetsMap.set(b.id, b));
+
+      const allMergedExpenses = Array.from(mergedExpMap.values());
+      const allMergedBudgets = Array.from(mergedBudgetsMap.values());
+
+      // 4. Save all merged items to local SQLite
+      for (const exp of allMergedExpenses) {
         await queries.addExpense(exp);
       }
-      for (const b of cloudBudgets) {
+      for (const b of allMergedBudgets) {
         await queries.addBudget(b);
       }
 
-      // 4. Update memory state with only this user's data
-      set({ expenses: cloudExpenses, budgets: cloudBudgets, syncing: false });
+      // 5. Upload any local items to Cloud Firestore if missing in cloud
+      const cloudExpIds = new Set(cloudExpenses.map(e => e.id));
+      for (const localExp of localExpenses) {
+        if (!cloudExpIds.has(localExp.id)) {
+          await syncToCloud(localExp);
+        }
+      }
+
+      // 6. Update memory state with merged data
+      set({ expenses: allMergedExpenses, budgets: allMergedBudgets, syncing: false });
     } catch (e) {
       set({ syncing: false });
     }
@@ -143,14 +163,13 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   loadExpenses: async () => {
     try {
       set({ loading: true });
-      const uid = getUserId();
+      const localExpenses = await queries.getExpenses();
+      set({ expenses: localExpenses });
 
+      const uid = getUserId();
       if (uid) {
-        // Automatically perform account-isolated cloud sync on load
-        await get().syncWithCloud();
-      } else {
-        const localExpenses = await queries.getExpenses();
-        set({ expenses: localExpenses });
+        // Automatically perform cloud sync in background
+        get().syncWithCloud().catch(() => {});
       }
     } catch (err: any) {
       set({ error: err.message });
@@ -161,12 +180,12 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   addExpense: async (expense) => {
     try {
-      // 1. Instant local optimistic update
+      // 1. Optimistic update in memory and SQLite
       set(state => ({ expenses: [expense, ...state.expenses.filter(e => e.id !== expense.id)] }));
       await queries.addExpense(expense);
 
-      // 2. Automatic Instant Cloud Upload (sanitized for current user)
-      syncToCloud(expense).catch(() => {});
+      // 2. Automatic Cloud Upload
+      await syncToCloud(expense);
     } catch (err: any) {
       set({ error: err.message });
     }
@@ -174,14 +193,14 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   updateExpense: async (expense) => {
     try {
-      // 1. Instant local optimistic update
+      // 1. Optimistic update
       set(state => ({
         expenses: state.expenses.map(e => e.id === expense.id ? expense : e)
       }));
       await queries.updateExpense(expense);
 
-      // 2. Automatic Instant Cloud Update (sanitized)
-      syncToCloud(expense).catch(() => {});
+      // 2. Automatic Cloud Update
+      await syncToCloud(expense);
     } catch (err: any) {
       set({ error: err.message });
     }
@@ -189,12 +208,12 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   deleteExpense: async (id) => {
     try {
-      // 1. Instant local optimistic update
+      // 1. Optimistic update
       set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
       await queries.deleteExpense(id);
 
-      // 2. Automatic Instant Cloud Delete
-      deleteFromCloud(id).catch(() => {});
+      // 2. Automatic Cloud Delete
+      await deleteFromCloud(id);
     } catch (err: any) {
       set({ error: err.message });
     }
@@ -236,7 +255,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         budgets: [budget, ...state.budgets.filter(b => b.id !== budget.id)]
       }));
       await queries.addBudget(budget);
-      syncBudgetToCloud(budget).catch(() => {});
+      await syncBudgetToCloud(budget);
     } catch (err: any) {
       set({ error: err.message });
     }

@@ -48,7 +48,7 @@ export default function AnalyticsScreen() {
   }, [rawWeeklyData]);
   const maxWeeklyAmount = Math.max(...weeklyData.map(d => d.amount), 1);
   
-  const avgPerDay = totalThisMonth / Math.max(1, new Date().getDate());
+  const avgPerDay = dailyAverage;
 
   const generateInsights = () => {
     const insights = [];
