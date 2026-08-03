@@ -176,6 +176,9 @@ export default function ProfileScreen() {
             try {
               await signOut(auth);
               await AsyncStorage.setItem('coinly_user_authed', 'false');
+              // Clear local database and state on logout for complete account isolation
+              const { clearLocalExpenses } = useExpenseStore.getState();
+              await clearLocalExpenses();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               router.replace('/login' as any);
             } catch (e) {

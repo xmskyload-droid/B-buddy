@@ -117,15 +117,15 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     if (!uid) return;
     set({ syncing: true });
     try {
-      // 1. Download all expenses and budgets from Firestore for this user
+      // 1. Download all expenses and budgets from Firestore specifically for this authenticated user ID
       const cloudExpenses = await loadExpensesFromCloud();
       const cloudBudgets = await loadBudgetsFromCloud();
 
-      // 2. Clear stale local data from previous accounts to prevent cross-account data leaks
+      // 2. Wipe local SQLite to prevent previous account's expenses from leaking into this account
       const database = await openDb();
       await database.execAsync('DELETE FROM expenses; DELETE FROM budgets;');
 
-      // 3. Save cloud data into local SQLite
+      // 3. Save only this account's cloud data into local SQLite
       for (const exp of cloudExpenses) {
         await queries.addExpense(exp);
       }
@@ -133,10 +133,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         await queries.addBudget(b);
       }
 
-      // 4. Update memory state
-      const freshExpenses = await queries.getExpenses();
-      const freshBudgets = await queries.getBudgets();
-      set({ expenses: freshExpenses, budgets: freshBudgets, syncing: false });
+      // 4. Update memory state with only this user's data
+      set({ expenses: cloudExpenses, budgets: cloudBudgets, syncing: false });
     } catch (e) {
       set({ syncing: false });
     }
@@ -148,7 +146,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       const uid = getUserId();
 
       if (uid) {
-        // Automatically perform full cloud sync on load
+        // Automatically perform account-isolated cloud sync on load
         await get().syncWithCloud();
       } else {
         const localExpenses = await queries.getExpenses();
@@ -167,7 +165,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       set(state => ({ expenses: [expense, ...state.expenses.filter(e => e.id !== expense.id)] }));
       await queries.addExpense(expense);
 
-      // 2. Automatic Instant Cloud Upload (sanitized)
+      // 2. Automatic Instant Cloud Upload (sanitized for current user)
       syncToCloud(expense).catch(() => {});
     } catch (err: any) {
       set({ error: err.message });
