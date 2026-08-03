@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Filter, Calendar as CalendarIcon, RefreshCw, Plus } from 'lucide-react-native';
+import { Filter, Calendar as CalendarIcon, RefreshCw, Download } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
