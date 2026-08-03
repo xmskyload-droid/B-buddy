@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Expense, Category, Budget } from '../types';
 import * as queries from '../database/queries';
+import { openDb } from '../database/db';
 import { collection, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 // @ts-ignore
 import { auth, db } from '../config/firebase';
@@ -13,13 +14,19 @@ const getUserId = () => {
   }
 };
 
+// Helper: Sanitize payload to strip undefined fields (which crash Firestore)
+const sanitize = <T>(obj: T): T => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
 const syncToCloud = async (expense: Expense) => {
   const uid = getUserId();
   if (!uid || !db) return;
   try {
-    await setDoc(doc(db, 'users', uid, 'expenses', expense.id), expense);
+    const cleanData = sanitize(expense);
+    await setDoc(doc(db, 'users', uid, 'expenses', expense.id), cleanData);
   } catch (e) {
-    // Silent fail if offline
+    console.error('Cloud Sync Error (Expense):', e);
   }
 };
 
@@ -29,7 +36,7 @@ const deleteFromCloud = async (id: string) => {
   try {
     await deleteDoc(doc(db, 'users', uid, 'expenses', id));
   } catch (e) {
-    // Silent fail if offline
+    console.error('Cloud Delete Error:', e);
   }
 };
 
@@ -37,9 +44,10 @@ const syncBudgetToCloud = async (budget: Budget) => {
   const uid = getUserId();
   if (!uid || !db) return;
   try {
-    await setDoc(doc(db, 'users', uid, 'budgets', budget.id), budget);
+    const cleanData = sanitize(budget);
+    await setDoc(doc(db, 'users', uid, 'budgets', budget.id), cleanData);
   } catch (e) {
-    // Silent fail if offline
+    console.error('Cloud Sync Error (Budget):', e);
   }
 };
 
@@ -50,6 +58,7 @@ const loadExpensesFromCloud = async (): Promise<Expense[]> => {
     const snap = await getDocs(collection(db, 'users', uid, 'expenses'));
     return snap.docs.map((d: any) => d.data() as Expense);
   } catch (e) {
+    console.error('Load Cloud Expenses Error:', e);
     return [];
   }
 };
@@ -80,6 +89,7 @@ interface ExpenseState {
   loadBudgets: () => Promise<void>;
   addBudget: (budget: Budget) => Promise<void>;
   syncWithCloud: () => Promise<void>;
+  clearLocalExpenses: () => Promise<void>;
   setLoading: (loading: boolean) => void;
 }
 
@@ -92,16 +102,30 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   error: null,
   setLoading: (loading) => set({ loading }),
 
+  clearLocalExpenses: async () => {
+    try {
+      const database = await openDb();
+      await database.execAsync('DELETE FROM expenses; DELETE FROM budgets;');
+      set({ expenses: [], budgets: [] });
+    } catch (e) {
+      set({ expenses: [], budgets: [] });
+    }
+  },
+
   syncWithCloud: async () => {
     const uid = getUserId();
     if (!uid) return;
     set({ syncing: true });
     try {
-      // 1. Fetch cloud data
+      // 1. Download all expenses and budgets from Firestore for this user
       const cloudExpenses = await loadExpensesFromCloud();
       const cloudBudgets = await loadBudgetsFromCloud();
 
-      // 2. Write cloud data to local SQLite so offline mode is pre-populated
+      // 2. Clear stale local data from previous accounts to prevent cross-account data leaks
+      const database = await openDb();
+      await database.execAsync('DELETE FROM expenses; DELETE FROM budgets;');
+
+      // 3. Save cloud data into local SQLite
       for (const exp of cloudExpenses) {
         await queries.addExpense(exp);
       }
@@ -109,19 +133,10 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         await queries.addBudget(b);
       }
 
-      // 3. Sync local expenses to cloud if missing in cloud
-      const localExpenses = await queries.getExpenses();
-      const cloudExpMap = new Map(cloudExpenses.map(e => [e.id, e]));
-      for (const localExp of localExpenses) {
-        if (!cloudExpMap.has(localExp.id)) {
-          await syncToCloud(localExp);
-        }
-      }
-
-      // 4. Update memory store with latest merged expenses
-      const allExpenses = await queries.getExpenses();
-      const allBudgets = await queries.getBudgets();
-      set({ expenses: allExpenses, budgets: allBudgets, syncing: false });
+      // 4. Update memory state
+      const freshExpenses = await queries.getExpenses();
+      const freshBudgets = await queries.getBudgets();
+      set({ expenses: freshExpenses, budgets: freshBudgets, syncing: false });
     } catch (e) {
       set({ syncing: false });
     }
@@ -130,13 +145,14 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   loadExpenses: async () => {
     try {
       set({ loading: true });
-      const localExpenses = await queries.getExpenses();
-      set({ expenses: localExpenses });
-
-      // Trigger cloud sync in background if user is authenticated
       const uid = getUserId();
+
       if (uid) {
-        get().syncWithCloud().catch(() => {});
+        // Automatically perform full cloud sync on load
+        await get().syncWithCloud();
+      } else {
+        const localExpenses = await queries.getExpenses();
+        set({ expenses: localExpenses });
       }
     } catch (err: any) {
       set({ error: err.message });
@@ -147,9 +163,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   addExpense: async (expense) => {
     try {
-      // Optimistic update
+      // 1. Instant local optimistic update
       set(state => ({ expenses: [expense, ...state.expenses.filter(e => e.id !== expense.id)] }));
       await queries.addExpense(expense);
+
+      // 2. Automatic Instant Cloud Upload (sanitized)
       syncToCloud(expense).catch(() => {});
     } catch (err: any) {
       set({ error: err.message });
@@ -158,11 +176,13 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   updateExpense: async (expense) => {
     try {
-      // Optimistic update
+      // 1. Instant local optimistic update
       set(state => ({
         expenses: state.expenses.map(e => e.id === expense.id ? expense : e)
       }));
       await queries.updateExpense(expense);
+
+      // 2. Automatic Instant Cloud Update (sanitized)
       syncToCloud(expense).catch(() => {});
     } catch (err: any) {
       set({ error: err.message });
@@ -171,9 +191,11 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   deleteExpense: async (id) => {
     try {
-      // Optimistic update
+      // 1. Instant local optimistic update
       set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
       await queries.deleteExpense(id);
+
+      // 2. Automatic Instant Cloud Delete
       deleteFromCloud(id).catch(() => {});
     } catch (err: any) {
       set({ error: err.message });

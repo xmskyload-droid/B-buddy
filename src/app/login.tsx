@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { useTheme } from '../hooks/useTheme';
+import { useExpenseStore } from '../store/expenseStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,6 +32,11 @@ export default function LoginScreen() {
       }
       // Save local flag so next app launch skips login screen instantly
       await AsyncStorage.setItem('coinly_user_authed', 'true');
+      
+      // Automatically download and sync cloud expenses for this logged-in account
+      const { syncWithCloud } = useExpenseStore.getState();
+      await syncWithCloud();
+
       const hasLaunched = await AsyncStorage.getItem('hasLaunched');
       if (hasLaunched) {
         router.replace('/(tabs)/home');
