@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, Pressable, StatusBar, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Moon, DollarSign, Globe, Lock, Shield, Download, FileText, Cloud, Star, MessageSquare, Info, Trash2, ChevronRight, Calendar } from 'lucide-react-native';
+import { Moon, DollarSign, Globe, Lock, Shield, Download, FileText, Cloud, Star, MessageSquare, Info, Trash2, ChevronRight, Calendar, LogOut, RefreshCw } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signOut } from 'firebase/auth';
+// @ts-ignore
+import { auth } from '../../config/firebase';
 
 import { useTheme } from '../../hooks/useTheme';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -36,11 +40,13 @@ export default function ProfileScreen() {
   } = useSettingsStore();
 
   const { expenses, totalThisMonth } = useExpenses();
-  const { categories, budgets, loadExpenses } = useExpenseStore();
+  const { categories, budgets, loadExpenses, syncWithCloud, syncing } = useExpenseStore();
 
   const [loadingExport, setLoadingExport] = useState<string | null>(null);
   const [pinModalMode, setPinModalMode] = useState<'set' | 'remove' | null>(null);
 
+  const currentUser = auth?.currentUser;
+  const userEmail = currentUser?.email || 'Logged in user';
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   // 1. Biometrics Handler
@@ -80,9 +86,8 @@ export default function ProfileScreen() {
     try {
       setLoadingExport('csv');
       await exportToCSV(expenses, categories, currency);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      Alert.alert('Export Failed', 'Unable to export CSV file.');
+      Alert.alert('Export Failed', 'Could not export CSV file.');
     } finally {
       setLoadingExport(null);
     }
@@ -93,24 +98,23 @@ export default function ProfileScreen() {
     try {
       setLoadingExport('pdf');
       await exportToPDF(expenses, categories, totalThisMonth, currency);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      Alert.alert('Export Failed', 'Unable to generate PDF report.');
+      Alert.alert('Export Failed', 'Could not generate PDF report.');
     } finally {
       setLoadingExport(null);
     }
   };
 
-  // 4. Backup
+  // 4. Backup Data
   const handleBackup = async () => {
     try {
       setLoadingExport('backup');
-      const timestamp = await createBackup(expenses, categories, budgets);
-      await setLastBackupDate(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
+      await createBackup(expenses, categories, budgets);
+      const dateStr = new Date().toLocaleDateString();
+      setLastBackupDate(dateStr);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Backup Complete', 'Your backup JSON has been generated and ready to share/save.');
     } catch (e) {
-      Alert.alert('Backup Failed', 'Could not complete backup operation.');
+      Alert.alert('Backup Failed', 'Could not create JSON backup file.');
     } finally {
       setLoadingExport(null);
     }
@@ -118,24 +122,18 @@ export default function ProfileScreen() {
 
   // 5. Rate App
   const handleRateApp = () => {
-    Alert.alert('Rate Coinly ⭐', 'Thank you for using Coinly! Official App Store rating will be available upon public release.');
+    const storeUrl = Platform.OS === 'ios'
+      ? 'https://apps.apple.com'
+      : 'https://play.google.com/store';
+    Linking.openURL(storeUrl).catch(() => {
+      Alert.alert('Coinly', 'Thank you for rating Coinly!');
+    });
   };
 
   // 6. Send Feedback
   const handleSendFeedback = () => {
-    const email = 'support@coinly.app';
-    const subject = encodeURIComponent('Coinly App Feedback');
-    const body = encodeURIComponent(
-      `\n\n---\nApp Version: ${appVersion}\nPlatform: ${Platform.OS} (${Platform.Version})`
-    );
-    const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
-
-    Linking.canOpenURL(mailtoUrl).then(supported => {
-      if (supported) {
-        Linking.openURL(mailtoUrl);
-      } else {
-        Alert.alert('Send Feedback', `Please email us directly at ${email}`);
-      }
+    Linking.openURL('mailto:support@coinly.app?subject=Coinly%20Feedback').catch(() => {
+      Alert.alert('Feedback', 'Send us your feedback at support@coinly.app');
     });
   };
 
@@ -152,11 +150,48 @@ export default function ProfileScreen() {
     );
   };
 
-  // 8. Delete All Data
+  // 8. Manual Cloud Sync
+  const handleSyncNow = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await syncWithCloud();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Cloud Sync Complete', 'All your expenses & budgets are up to date in the cloud!');
+    } catch (e) {
+      Alert.alert('Sync Error', 'Could not sync with cloud. Check network connection.');
+    }
+  };
+
+  // 9. Logout Handler
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of your account? Your data will remain safely stored in the cloud.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              await AsyncStorage.setItem('coinly_user_authed', 'false');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              router.replace('/login' as any);
+            } catch (e) {
+              Alert.alert('Error', 'Failed to log out.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // 10. Delete All Data
   const handleDeleteAllData = () => {
     Alert.alert(
       'Delete All Data ⚠️',
-      'This will permanently delete all your expenses, budgets, and settings records. This action cannot be undone.',
+      'This will permanently delete all your local expenses and budgets. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -168,7 +203,7 @@ export default function ProfileScreen() {
               await db.execAsync('DELETE FROM expenses; DELETE FROM budgets;');
               await loadExpenses();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              Alert.alert('Reset Complete', 'All transaction records have been deleted.');
+              Alert.alert('Reset Complete', 'All local transaction records have been deleted.');
             } catch (e) {
               Alert.alert('Error', 'Failed to clear database.');
             }
@@ -204,21 +239,30 @@ export default function ProfileScreen() {
           width: 36,
           height: 36,
           borderRadius: 10,
-          backgroundColor: isDestructive ? '#EF444420' : `${colors.accent}20`,
+          backgroundColor: isDestructive ? '#EF444415' : colors.muted,
           alignItems: 'center',
           justifyContent: 'center',
-          marginRight: 16,
+          marginRight: 14,
         }}
       >
-        {React.createElement(icon, { size: 18, color: isDestructive ? '#EF4444' : colors.accent })}
+        {React.createElement(icon, {
+          size: 18,
+          color: isDestructive ? '#EF4444' : colors.primary,
+        })}
       </View>
-
-      <Text style={{ flex: 1, color: isDestructive ? '#EF4444' : colors.primary, fontSize: 15, fontWeight: '600' }}>
+      <Text
+        style={{
+          flex: 1,
+          color: isDestructive ? '#EF4444' : colors.primary,
+          fontSize: 15,
+          fontWeight: '600',
+        }}
+      >
         {label}
       </Text>
 
       {isLoading ? (
-        <ActivityIndicator size="small" color={colors.accent} />
+        <ActivityIndicator size="small" color="#22C55E" />
       ) : showToggle ? (
         <Switch
           value={toggleValue}
@@ -239,23 +283,35 @@ export default function ProfileScreen() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}>
-          
+
           <Animated.View entering={FadeInDown.delay(0).duration(400)} style={{ paddingTop: 16, paddingBottom: 24 }}>
             <Text style={{ color: colors.primary, fontSize: 32, fontWeight: '800' }}>Profile & Settings</Text>
           </Animated.View>
 
           {/* User Card */}
-          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 28, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.05, shadowRadius: 12, elevation: 3 }}>
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.3 : 0.05, shadowRadius: 12, elevation: 3 }}>
             <View style={{ width: 60, height: 60, borderRadius: 20, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-              <Text style={{ color: 'white', fontSize: 22, fontWeight: '800' }}>U</Text>
+              <Text style={{ color: 'white', fontSize: 22, fontWeight: '800' }}>
+                {userEmail.charAt(0).toUpperCase()}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 2 }}>User Account</Text>
-              <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: '500' }}>{expenses.length} transactions · {currency}</Text>
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '700', marginBottom: 2 }} numberOfLines={1}>
+                {userEmail}
+              </Text>
+              <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: '500' }}>
+                {expenses.length} transactions · {currency}
+              </Text>
             </View>
             <View style={{ backgroundColor: '#22C55E15', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
-              <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>ACTIVE</Text>
+              <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: '700' }}>CLOUD SYNCED</Text>
             </View>
+          </Animated.View>
+
+          {/* Cloud Sync Section */}
+          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={{ backgroundColor: colors.card, borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 20, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 4, paddingTop: 4 }}>CLOUD SYNC</Text>
+            {renderRow(RefreshCw, 'Sync with Cloud Now', syncing ? 'Syncing...' : 'Up to date', false, false, undefined, undefined, handleSyncNow, syncing)}
           </Animated.View>
 
           {/* Preferences */}
@@ -298,10 +354,34 @@ export default function ProfileScreen() {
             {renderRow(Info, 'Version', appVersion)}
           </Animated.View>
 
+          {/* Log Out Button */}
+          <Animated.View entering={FadeInDown.delay(550).duration(400)} style={{ marginBottom: 20 }}>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#EF444415',
+                borderRadius: 20,
+                height: 56,
+                borderWidth: 1,
+                borderColor: '#EF444430',
+                gap: 8,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <LogOut size={20} color="#EF4444" />
+              <Text style={{ color: '#EF4444', fontSize: 16, fontWeight: '700' }}>
+                Log Out of Account
+              </Text>
+            </Pressable>
+          </Animated.View>
+
           {/* Danger Zone */}
           <Animated.View entering={FadeInDown.delay(600).duration(400)} style={{ backgroundColor: colors.card, borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 4, paddingTop: 4 }}>DANGER ZONE</Text>
-            {renderRow(Trash2, 'Delete All Data', undefined, true, false, undefined, undefined, handleDeleteAllData)}
+            {renderRow(Trash2, 'Delete All Local Data', undefined, true, false, undefined, undefined, handleDeleteAllData)}
           </Animated.View>
 
         </ScrollView>
