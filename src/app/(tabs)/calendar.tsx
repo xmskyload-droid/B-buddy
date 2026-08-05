@@ -27,7 +27,7 @@ const FILTER_PRESETS: { type: DateFilterType; label: string }[] = [
 
 export default function CalendarScreen() {
   const { colors, isDark } = useTheme();
-  const { expenses } = useExpenses();
+  const { expenses, allExpenses } = useExpenses();
   const { categories } = useExpenseStore();
   const { currency } = useSettingsStore();
   const router = useRouter();
@@ -134,7 +134,7 @@ export default function CalendarScreen() {
           {/* Interactive Calendar Component */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ marginBottom: 24 }}>
             <InteractiveCalendar
-              expenses={expenses}
+              expenses={allExpenses || expenses}
               onSelectDate={handleSelectDate}
               onLongPressDate={handleLongPressDate}
             />

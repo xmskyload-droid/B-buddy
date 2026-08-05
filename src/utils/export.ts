@@ -40,8 +40,14 @@ export const exportToCSV = async (
 
     const monthLabel = monthDate ? format(monthDate, 'MMMM_yyyy') : 'All_Time';
     const csvContent = [headers.join(','), ...rows].join('\n');
-    const docDir = (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory || '';
-    const fileUri = `${docDir}Coinly_Expenses_${monthLabel}_${Date.now()}.csv`;
+    
+    // Ensure cacheDirectory or documentDirectory has trailing slash
+    let baseDir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory || '';
+    if (baseDir && !baseDir.endsWith('/')) {
+      baseDir += '/';
+    }
+
+    const fileUri = `${baseDir}Coinly_Expenses_${monthLabel}_${Date.now()}.csv`;
 
     await FileSystem.writeAsStringAsync(fileUri, csvContent, {
       encoding: FileSystem.EncodingType.UTF8,
