@@ -69,7 +69,7 @@ export default function LoginScreen() {
               <Text style={{ fontSize: 40 }}>💰</Text>
             </View>
             <Text style={{ color: colors.primary, fontSize: 28, fontWeight: '800', marginBottom: 8 }}>
-              Welcome to Coinly
+              Welcome to Spendy
             </Text>
             <Text style={{ color: colors.secondary, fontSize: 16 }}>
               {isLogin ? 'Sign in to sync your expenses' : 'Create an account to save your data'}

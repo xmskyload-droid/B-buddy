@@ -47,7 +47,7 @@ export const exportToCSV = async (
       baseDir += '/';
     }
 
-    const fileUri = `${baseDir}Coinly_Expenses_${monthLabel}_${Date.now()}.csv`;
+    const fileUri = `${baseDir}Spendy_Expenses_${monthLabel}_${Date.now()}.csv`;
 
     await FileSystem.writeAsStringAsync(fileUri, csvContent, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -153,7 +153,7 @@ export const exportToPDF = async (
         <body>
           <div class="header">
             <div>
-              <div class="logo">Coinly 💰</div>
+              <div class="logo">Spendy 💰</div>
               <div class="subtitle">${reportTitle}</div>
             </div>
             <div style="text-align: right;">
@@ -204,7 +204,7 @@ export const exportToPDF = async (
           </table>
 
           <div class="footer">
-            Generated automatically by Coinly — Your Premium Financial Companion
+            Generated automatically by Spendy — Your Premium Financial Companion
           </div>
         </body>
       </html>

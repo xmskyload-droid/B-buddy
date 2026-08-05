@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Coinly",
+    "name": "Spendy",
     "slug": "flow-finance",
-    "scheme": "coinly",
+    "scheme": "spendy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,7 +43,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow Coinly to use Face ID for secure login."
+          "faceIDPermission": "Allow Spendy to use Face ID for secure login."
         }
       ],
       "expo-sharing"

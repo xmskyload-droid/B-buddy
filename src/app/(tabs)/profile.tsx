@@ -126,14 +126,14 @@ export default function ProfileScreen() {
       ? 'https://apps.apple.com'
       : 'https://play.google.com/store';
     Linking.openURL(storeUrl).catch(() => {
-      Alert.alert('Coinly', 'Thank you for rating Coinly!');
+      Alert.alert('Spendy', 'Thank you for rating Spendy!');
     });
   };
 
   // 6. Send Feedback
   const handleSendFeedback = () => {
-    Linking.openURL('mailto:support@coinly.app?subject=Coinly%20Feedback').catch(() => {
-      Alert.alert('Feedback', 'Send us your feedback at support@coinly.app');
+    Linking.openURL('mailto:support@spendy.app?subject=Spendy%20Feedback').catch(() => {
+      Alert.alert('Feedback', 'Send us your feedback at support@spendy.app');
     });
   };
 
@@ -350,7 +350,7 @@ export default function ProfileScreen() {
           {/* About */}
           <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ backgroundColor: colors.card, borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 20, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 4, paddingTop: 4 }}>ABOUT</Text>
-            {renderRow(Star, 'Rate Coinly', undefined, false, false, undefined, undefined, handleRateApp)}
+            {renderRow(Star, 'Rate Spendy', undefined, false, false, undefined, undefined, handleRateApp)}
             <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />
             {renderRow(MessageSquare, 'Send Feedback', undefined, false, false, undefined, undefined, handleSendFeedback)}
             <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />
